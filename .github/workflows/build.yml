@@ -59,9 +59,22 @@ jobs:
     - name: List APK file
       run: ls -la app/build/outputs/apk/debug/ || echo "No APK found"
     
-    # Utilisation d'une façon alternative de télécharger l'artifact
-    - name: Archive APK
-      uses: actions/upload-artifact@v2
-      with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+    # Alternative à l'action upload-artifact
+    - name: Create artifacts directory
+      run: mkdir -p $GITHUB_WORKSPACE/artifacts
+    
+    - name: Copy APK to artifacts directory
+      run: |
+        if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+          cp app/build/outputs/apk/debug/app-debug.apk $GITHUB_WORKSPACE/artifacts/
+          echo "APK successfully copied to artifacts directory"
+        else
+          echo "APK file not found"
+          exit 1
+        fi
+    
+    # Sauvegarde d'informations sur l'artifact dans un fichier summary
+    - name: Create artifact summary
+      run: |
+        echo "## Build Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "* app-debug.apk - [Download from workflow run page]" >> $GITHUB_STEP_SUMMARY
