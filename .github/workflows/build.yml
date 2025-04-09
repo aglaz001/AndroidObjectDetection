@@ -9,29 +9,27 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    # Vérifions d'abord la version de Gradle dans le projet
-    - name: Check Gradle version
+    # Examiner la structure du projet
+    - name: Examine project structure
       run: |
-        if [ -f gradle/wrapper/gradle-wrapper.properties ]; then
-          cat gradle/wrapper/gradle-wrapper.properties
-        else
-          echo "gradle-wrapper.properties not found"
-        fi
+        ls -la
+        find . -name "build.gradle" -o -name "build.gradle.kts" | xargs cat
+        find . -name "gradle-wrapper.properties" | xargs cat
     
-    # Utilisons Java 11 au lieu de 17 pour une meilleure compatibilité avec Gradle
-    - name: Set up JDK 11
+    # Utiliser Java 8 (la version la plus compatible avec d'anciens projets Android)
+    - name: Set up JDK 8
       uses: actions/setup-java@v3
       with:
-        java-version: '11'
+        java-version: '8'
         distribution: 'temurin'
     
-    - name: Setup Android SDK Manager
+    - name: Setup Android SDK
       run: |
         export ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk
         mkdir -p $ANDROID_HOME/cmdline-tools
         
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-        unzip -q commandlinetools-linux-9477386_latest.zip -d $ANDROID_HOME/cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-6858069_latest.zip
+        unzip -q commandlinetools-linux-6858069_latest.zip -d $ANDROID_HOME/cmdline-tools
         mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest || true
         
         export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
@@ -41,7 +39,7 @@ jobs:
     - name: Install Android SDK components
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" "ndk;21.3.6528147"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-29" "build-tools;29.0.3" "ndk;21.3.6528147"
     
     - name: Create local.properties
       run: |
@@ -51,40 +49,4 @@ jobs:
     - name: Download OpenCV SDK
       run: |
         wget https://sourceforge.net/projects/opencvlibrary/files/4.1.0/opencv-4.1.0-android-sdk.zip
-        unzip -q opencv-4.1.0-android-sdk.zip
-        mkdir -p OpenCV
-        cp -r OpenCV-android-sdk/sdk OpenCV/
-    
-    - name: Update settings.gradle
-      run: |
-        echo "include ':app', ':OpenCV'" > settings.gradle
-        echo "project(':OpenCV').projectDir = new File('OpenCV/sdk')" >> settings.gradle
-    
-    - name: Download YOLO weights
-      run: |
-        mkdir -p app/src/main/assets
-        wget https://pjreddie.com/media/files/yolov3-tiny.weights -O app/src/main/assets/yolov3-tiny.weights
-    
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
-    
-    # Mettre à jour le wrapper Gradle si nécessaire
-    - name: Update Gradle Wrapper
-      run: |
-        if [ -f "./gradlew" ]; then
-          ./gradlew wrapper --gradle-version 7.0 --distribution-type all
-        fi
-    
-    - name: Display environment info
-      run: |
-        echo "ANDROID_HOME: $ANDROID_HOME"
-        java -version
-        ./gradlew --version
-    
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug --stacktrace
-    
-    - name: List APK file
-      if: always()
-      run: |
-        find app/build -name "*.apk" || echo "No APK found"
+        unzip -q opencv-4.1.0-android-sdk.
