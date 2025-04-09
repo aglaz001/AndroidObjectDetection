@@ -10,12 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
+    - name: Checkout code
+      uses: actions/checkout@v1
     
     - name: Set up JDK
       uses: actions/setup-java@v1
       with:
-        java-version: 1.8
+        java-version: 11  # Mise à jour vers une version plus récente de Java
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+      
+    - name: Install NDK
+      run: |
+        echo "y" | sdkmanager --install "ndk;21.3.6528147"
+        
+    - name: Create local.properties with correct paths
+      run: |
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        echo "ndk.dir=$ANDROID_HOME/ndk/21.3.6528147" >> local.properties
+        cat local.properties
     
     - name: Download OpenCV SDK
       run: |
@@ -37,8 +51,22 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug
+    - name: Display environment variables
+      run: |
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        ls -la $ANDROID_HOME
+        echo "NDK path: $ANDROID_HOME/ndk/21.3.6528147"
+        ls -la $ANDROID_HOME/ndk/21.3.6528147 || echo "NDK directory does not exist"
     
-    - name: List APK files
-      run: ls -la app/build/outputs/apk/debug/
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug --info
+    
+    - name: List APK file
+      run: ls -la app/build/outputs/apk/debug/ || echo "No APK found"
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v1
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+      if: success()
