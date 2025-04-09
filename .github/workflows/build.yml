@@ -1,0 +1,49 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # Permet de lancer manuellement
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: gradle
+    
+    - name: Download OpenCV SDK
+      run: |
+        wget https://sourceforge.net/projects/opencvlibrary/files/4.1.0/opencv-4.1.0-android-sdk.zip
+        unzip opencv-4.1.0-android-sdk.zip
+        mkdir -p OpenCV
+        cp -r OpenCV-android-sdk/sdk OpenCV/
+    
+    - name: Update settings.gradle
+      run: |
+        echo "include ':app', ':OpenCV'" > settings.gradle
+        echo "project(':OpenCV').projectDir = new File('OpenCV/sdk')" >> settings.gradle
+    
+    - name: Download YOLO weights (if needed)
+      run: |
+        mkdir -p app/src/main/assets
+        wget https://pjreddie.com/media/files/yolov3-tiny.weights -O app/src/main/assets/yolov3-tiny.weights
+    
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
