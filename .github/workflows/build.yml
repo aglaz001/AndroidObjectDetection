@@ -40,20 +40,8 @@ jobs:
     
     - name: Download and extract OpenCV SDK
       run: |
-        # Téléchargement
         wget https://sourceforge.net/projects/opencvlibrary/files/4.1.0/opencv-4.1.0-android-sdk.zip -O opencv.zip
-        
-        # Vérification du téléchargement
-        ls -la opencv.zip
-        file opencv.zip
-        
-        # Extraction avec meilleure gestion d'erreurs
-        unzip -q opencv.zip || (echo "Extraction failed, trying with -o option" && unzip -o opencv.zip)
-        
-        # Vérification après extraction
-        ls -la
-        
-        # Création du répertoire OpenCV
+        unzip -q opencv.zip
         mkdir -p OpenCV
         cp -r opencv-android-sdk/sdk OpenCV/ || (echo "Directory structure unexpected, listing contents:" && find . -name "sdk" -type d)
     
@@ -70,5 +58,14 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug --info
+    # Examiner le build.gradle pour comprendre le projet
+    - name: Examine build.gradle
+      run: |
+        echo "*** app/build.gradle ***"
+        cat app/build.gradle
+        echo "*** build.gradle ***"
+        cat build.gradle
+    
+    # Compilation avec options détaillées pour voir les erreurs Java
+    - name: Build with Gradle (verbose Java compiler errors)
+      run: ./gradlew assembleDebug --info --stacktrace -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8" -Pandroid.debug.obsoleteApi=true
