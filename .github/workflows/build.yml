@@ -7,22 +7,36 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
-    - name: Set up JDK
-      uses: actions/setup-java@v2
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
       with:
-        java-version: '11'
+        java-version: '17'
         distribution: 'temurin'
     
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
-    
-    - name: Install NDK
+    - name: Setup Android SDK Manager
       run: |
-        echo "y" | sdkmanager --install "ndk;21.3.6528147"
+        # Installer les composants nécessaires
+        export ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        
+        # Télécharger et installer Command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip -d $ANDROID_HOME/cmdline-tools
+        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        
+        # Ajouter au PATH et exporter la variable d'environnement
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+        echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+        echo "PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_ENV
     
-    - name: Create local.properties with correct paths
+    - name: Install Android SDK components
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" "ndk;21.3.6528147"
+    
+    - name: Create local.properties
       run: |
         echo "sdk.dir=$ANDROID_HOME" > local.properties
         echo "ndk.dir=$ANDROID_HOME/ndk/21.3.6528147" >> local.properties
@@ -31,7 +45,7 @@ jobs:
     - name: Download OpenCV SDK
       run: |
         wget https://sourceforge.net/projects/opencvlibrary/files/4.1.0/opencv-4.1.0-android-sdk.zip
-        unzip opencv-4.1.0-android-sdk.zip
+        unzip -q opencv-4.1.0-android-sdk.zip
         mkdir -p OpenCV
         cp -r OpenCV-android-sdk/sdk OpenCV/
     
@@ -52,29 +66,20 @@ jobs:
       run: |
         echo "ANDROID_HOME: $ANDROID_HOME"
         ls -la $ANDROID_HOME
+        echo "Java version:"
+        java -version
     
     - name: Build with Gradle
       run: ./gradlew assembleDebug --info
     
-    - name: List APK file
-      run: ls -la app/build/outputs/apk/debug/ || echo "No APK found"
-    
-    # Alternative à l'action upload-artifact
-    - name: Create artifacts directory
-      run: mkdir -p $GITHUB_WORKSPACE/artifacts
-    
-    - name: Copy APK to artifacts directory
+    - name: List build outputs
       run: |
-        if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
-          cp app/build/outputs/apk/debug/app-debug.apk $GITHUB_WORKSPACE/artifacts/
-          echo "APK successfully copied to artifacts directory"
-        else
-          echo "APK file not found"
-          exit 1
-        fi
+        find app/build -name "*.apk"
     
-    # Sauvegarde d'informations sur l'artifact dans un fichier summary
-    - name: Create artifact summary
-      run: |
-        echo "## Build Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "* app-debug.apk - [Download from workflow run page]" >> $GITHUB_STEP_SUMMARY
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 5
+        if-no-files-found: warn
