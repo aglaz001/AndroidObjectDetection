@@ -9,14 +9,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    # Examiner la structure du projet
-    - name: Examine project structure
-      run: |
-        ls -la
-        find . -name "build.gradle" -o -name "build.gradle.kts" | xargs cat
-        find . -name "gradle-wrapper.properties" | xargs cat
-    
-    # Utiliser Java 8 (la version la plus compatible avec d'anciens projets Android)
     - name: Set up JDK 8
       uses: actions/setup-java@v3
       with:
@@ -46,7 +38,37 @@ jobs:
         echo "sdk.dir=$ANDROID_HOME" > local.properties
         echo "ndk.dir=$ANDROID_HOME/ndk/21.3.6528147" >> local.properties
     
-    - name: Download OpenCV SDK
+    - name: Download and extract OpenCV SDK
       run: |
-        wget https://sourceforge.net/projects/opencvlibrary/files/4.1.0/opencv-4.1.0-android-sdk.zip
-        unzip -q opencv-4.1.0-android-sdk.
+        # Téléchargement
+        wget https://sourceforge.net/projects/opencvlibrary/files/4.1.0/opencv-4.1.0-android-sdk.zip -O opencv.zip
+        
+        # Vérification du téléchargement
+        ls -la opencv.zip
+        file opencv.zip
+        
+        # Extraction avec meilleure gestion d'erreurs
+        unzip -q opencv.zip || (echo "Extraction failed, trying with -o option" && unzip -o opencv.zip)
+        
+        # Vérification après extraction
+        ls -la
+        
+        # Création du répertoire OpenCV
+        mkdir -p OpenCV
+        cp -r opencv-android-sdk/sdk OpenCV/ || (echo "Directory structure unexpected, listing contents:" && find . -name "sdk" -type d)
+    
+    - name: Update settings.gradle
+      run: |
+        echo "include ':app', ':OpenCV'" > settings.gradle
+        echo "project(':OpenCV').projectDir = new File('OpenCV/sdk')" >> settings.gradle
+    
+    - name: Download YOLO weights
+      run: |
+        mkdir -p app/src/main/assets
+        wget https://pjreddie.com/media/files/yolov3-tiny.weights -O app/src/main/assets/yolov3-tiny.weights
+    
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug --info
